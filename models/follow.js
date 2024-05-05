@@ -1,23 +1,58 @@
-'use strict';
-const {
-  Model
-} = require('sequelize');
-module.exports = (sequelize, DataTypes) => {
-  class Follow extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models) {
-      // define association here
+"use strict";
+
+const initFollow = (sequelize, DataTypes) => {
+  const Follow = sequelize.define(
+    "Follow",
+    {},
+    {
+      validate: {
+        /** Checks that the following user and the followed user don't
+         * match.
+         */
+        noSelfFollowing() {
+          if (this.followingUserId == this.followedUserId) {
+            throw new Error(
+              "`followingUserId` must not match `followedUserId`"
+            );
+          }
+        },
+      },
+      // Hash indexes are used below since we don't anticipate range
+      // queries on these fields.
+      indexes: [
+        {
+          name: "following_user_index",
+          using: "HASH",
+          fields: ["followingUserId"],
+        },
+        {
+          name: "followed_user_index",
+          using: "HASH",
+          fields: ["followedUserId"],
+        },
+      ],
     }
-  }
-  Follow.init({
-    foo: DataTypes.STRING
-  }, {
-    sequelize,
-    modelName: 'Follow',
-  });
+  );
+
+  Follow.associate = function (models) {
+    Follow.belongsTo(models.User, {
+      foreignKey: {
+        name: "followingUserId",
+        allowNull: false,
+      },
+      onDelete: "CASCADE",
+    });
+    Follow.belongsTo(models.User, {
+      foreignKey: {
+        name: "followedUserId",
+        allowNull: false,
+      },
+      onDelete: "CASCADE",
+    });
+    return Follow;
+  };
+
   return Follow;
 };
+
+export { initFollow };

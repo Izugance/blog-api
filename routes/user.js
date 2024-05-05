@@ -21,6 +21,6 @@ userRouter
   .get(getUserFollowers)
   .post(userAuthMiddleware, followUser)
   .delete(userAuthMiddleware, unfollowUser);
-userRouter.route("/current_user/likes").get(userAuthMiddleware, getUserLikes);
+userRouter.route("/current-user/likes").get(userAuthMiddleware, getUserLikes);
 
 export { userRouter };

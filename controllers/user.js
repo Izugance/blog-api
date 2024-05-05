@@ -6,6 +6,7 @@ import { getOffset } from "../utils/pagination.js";
 import { ResourceNotFoundError } from "../errors/resource-not-found.js";
 
 const User = models.User;
+const Follow = models.Follow;
 const Like = models.Like;
 const PAGINATION_LIMIT = 16;
 
@@ -24,13 +25,13 @@ const PAGINATION_LIMIT = 16;
  *
  * Success status code: 200
  *
- * DEV NOTES: Select fields in return.
+ * DEV NOTES: Select fields in return. Change to `getUserByUsername`
  */
 const getUserByEmail = asyncHandler(async (req, res) => {
   const email = req.params.email.trim().toLowerCase();
-  const user = await User.findAll({
+  const user = await User.findOne({
     where: { email },
-    attributes: { exclude: ["password"] },
+    attributes: ["id", "username", "email", "firstName", "lastName"],
   });
   res.status(StatusCodes.OK).json({ user });
 });
@@ -55,13 +56,11 @@ const getUserByEmail = asyncHandler(async (req, res) => {
  */
 const getUserArticles = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.params.userId);
-
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
-
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let articles = await user.getArticles({
@@ -83,7 +82,7 @@ const getUserArticles = asyncHandler(async (req, res) => {
  *
  * Return: [
  *    {
- *      "postId": `<postId>`,
+ *      "postId": `<post id>`,
  *      "postType": `<post type (comment or article)>`, // HOW TO IMPLEMENT? ---------------------------
  *    },
  *    ...
@@ -120,40 +119,48 @@ const getUserLikes = asyncHandler(async (req, res) => {
  *
  * URL params: userId
  *
- * Return: [{
- *    "userId": `<userId>`,
- *    "email": `<user email>`,
- *    "fullName": `<user full name>`},
+ * Return: [
+ *    {
+ *      "createdAt": `<follow creation datetime>`,
+ *      "User": {
+ *        "id": `<userId>`,
+ *        "username": `<user username>`,
+ *        "firstName": `<user first name>`,
+ *        "lastName": `<user last name>`
+ *      },
+ *    },
  *    ...
  * ]
  *
  * Success status code: 200
  *
  * DEV NOTES: Include other fields (e.g. email and count) in return?
- * Order?
+ * Order? No need for user query due to fkey constraint on `Follow`?
  */
 const getUserFollowing = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.params.userId);
-
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
-
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
-  let following = await user.getFollowRelations({
-    where: { followingUserId: user.id },
+  let following = await Follow.findAll({
+    where: {
+      followingUserId: user.id,
+    },
     offset,
     limit: PAGINATION_LIMIT,
-    attributes: [["id", "userId"], "email", "fullName"],
-    joinTableAttributes: [],
+    include: {
+      model: User,
+      attributes: ["id", "username", "firstName", "lastName"],
+    },
+    attributes: ["createdAt"],
   });
-  // following = following.map((userFollows) => {
-  //   return userFollows.toJSON();
-  // });
-  following = following.toJSON();
+  following = following.map((userFollows) => {
+    return userFollows.toJSON();
+  });
   res.status(StatusCodes.OK).json({ following });
 });
 
@@ -163,7 +170,18 @@ const getUserFollowing = asyncHandler(async (req, res) => {
  *
  * URL params: userId
  *
- * Return: [{"id": `<userId>`}, ...]
+ * Return: [
+ *    {
+ *      "createdAt": `<follow creation datetime>`,
+ *      "User": {
+ *        "id": `<userId>`,
+ *        "username": `<user username>`,
+ *        "firstName": `<user first name>`,
+ *        "lastName": `<user last name>`
+ *      },
+ *    },
+ *    ...
+ * ]
  *
  * Success status code: 200
  *
@@ -172,28 +190,28 @@ const getUserFollowing = asyncHandler(async (req, res) => {
  */
 const getUserFollowers = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.params.userId);
-
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
-
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
-  let followers = await user.getFollowRelations({
+  let followers = await Follow.findAll({
     where: {
       followedUserId: user.id,
     },
     offset,
     limit: PAGINATION_LIMIT,
-    attributes: [["id", "userId"], "email", "fullName"],
-    joinTableAttributes: [],
+    include: {
+      model: User,
+      attributes: ["id", "username", "firstName", "lastName"],
+    },
+    attributes: ["createdAt"],
   });
-  // followers = followers.map((followsUser) => {
-  //   return followsUser.toJSON();
-  // });
-  followers = followers.toJSON();
+  followers = followers.map((follower) => {
+    return follower.toJSON();
+  });
   res.status(StatusCodes.OK).json({ followers });
 });
 
@@ -207,18 +225,17 @@ const getUserFollowers = asyncHandler(async (req, res) => {
  *
  * Success status code: 200
  *
- * DEV NOTES: Error if user doesn't exist? Constraint: User can't
- * follow same user.
+ * DEV NOTES: Error if user doesn't exist? Don't need extra query for
+ * targetUser due to fkey in model?
  */
 const followUser = asyncHandler(async (req, res) => {
   const targetUser = await User.findByPk(req.params.userId);
-
   if (!targetUser) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
-  await targetUser.createFollowRelation({
+  await Follow.create({
     followingUserId: req.user.id,
     followedUserId: targetUser.id,
   });
@@ -237,17 +254,15 @@ const followUser = asyncHandler(async (req, res) => {
  *
  * DEV NOTES: Error if user doesn't exist?
  */
-
 const unfollowUser = asyncHandler(async (req, res) => {
   const targetUser = await User.findByPk(req.params.userId);
-
   if (!targetUser) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
   // INFER FOLLOWER EXISTENCE? --------------------------------------------------------
-  await targetUser.removeFollowRelation({
+  await Follow.destroy({
     where: {
       followingUserId: req.user.id,
       followedUserId: targetUser.id,
