@@ -10,15 +10,15 @@ const Follow = models.Follow;
 const Like = models.Like;
 const PAGINATION_LIMIT = 16;
 
-/** GET `<apiRoot>`/users/:email
+/** GET `<apiRoot>`/users/:username
  *
- * Get a user by email.
+ * Get a user by username.
  *
  * URL params: email
  *
  * Return: {
  *    "id": `<user id>`,
- *    "email": `<user email>`,
+ *    "username": `<user username>`,
  *    "firstName": `<user first name>`,
  *    "lastName": `<user last name>`
  * }
@@ -27,11 +27,11 @@ const PAGINATION_LIMIT = 16;
  *
  * DEV NOTES: Select fields in return. Change to `getUserByUsername`
  */
-const getUserByEmail = asyncHandler(async (req, res) => {
-  const email = req.params.email.trim().toLowerCase();
+const getUserByUsername = asyncHandler(async (req, res) => {
+  const username = req.params.username.trim().toLowerCase();
   const user = await User.findOne({
-    where: { email },
-    attributes: ["id", "username", "email", "firstName", "lastName"],
+    where: { username },
+    attributes: ["id", "username", "firstName", "lastName"],
   });
   res.status(StatusCodes.OK).json({ user });
 });
@@ -272,7 +272,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
 });
 
 export {
-  getUserByEmail,
+  getUserByUsername,
   getUserArticles,
   getUserFollowing,
   getUserFollowers,
