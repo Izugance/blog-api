@@ -2,7 +2,7 @@ import express from "express";
 
 import { userAuthMiddleware } from "../middleware/auth.js";
 import {
-  getUserByEmail,
+  getUserByUsername,
   getUserFollowing,
   getUserFollowers,
   getUserLikes,
@@ -13,7 +13,7 @@ import {
 
 const userRouter = express.Router();
 
-userRouter.route("/:email").get(getUserByEmail);
+userRouter.route("/:username").get(getUserByUsername);
 userRouter.route("/:userId/articles").get(getUserArticles);
 userRouter.route("/:userId/following").get(getUserFollowing);
 userRouter
