@@ -32,6 +32,17 @@ const initUser = (sequelize, DataTypes) => {
           isLowercase: true, // Reasonable?
         },
       },
+      username: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false,
+        validate: {
+          isLowercase: true,
+          is: /^(?!\.)(\.?(?!\.)_*\.?(?!\.))*\d*[a-zA-Z]+\d*((\.?(?!\.)_*\.?(?!\.))*\w*)*\w+$/,
+          notEmpty: true,
+          len: [1, 20],
+        },
+      },
       firstName: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -101,15 +112,15 @@ const initUser = (sequelize, DataTypes) => {
     User.belongsToMany(User, {
       through: "Follow",
       as: {
-        singular: "FollowRelation",
-        plural: "FollowRelations",
+        singular: "Follow",
+        plural: "Follows",
       },
       foreignKey: {
-        name: "followedUserId",
+        name: "followingUserId",
         allowNull: false,
       },
       otherKey: {
-        name: "followingUserId",
+        name: "followedUserId",
         allowNull: false,
       },
       onDelete: "CASCADE", // Sequelize default.

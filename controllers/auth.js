@@ -9,9 +9,14 @@ const User = models.User;
 
 /** POST `<apiRoot>`/auth/register
  * Create a user. An error is thrown if the user can't be successfully
- * created.
+ * created. The username can be at most 20 characters and can only
+ * include letters, numbers, and the special characters "." and "_". A
+ * "." cannot begin a username, but an underscore can. You cannot have
+ * > one "." in sequence. A username cannot consist of only numbers or
+ * a mix of numbers and the allowed special characters and their
+ * allowed combinations only.
  *
- * Body params: firstName, lastName, email, password
+ * Body params: email, username, firstName, lastName, password
  *
  * Return: {
  *    "id": `<user id>`,
@@ -20,14 +25,32 @@ const User = models.User;
  *
  * Success status code: 201
  *
- * DEV NOTE: Email is stored in lowercase. Store names in title case?
+ * DEV NOTE: Email and username are stored in lowercase.
+ * Store names in title case?
  */
 const register = asyncHandler(async (req, res) => {
-  let { firstName, lastName, email, password } = req.body;
-  firstName = toTitleCase(firstName);
-  lastName = toTitleCase(lastName);
-  email = email.trim().toLowerCase();
-  const user = await User.create({ firstName, lastName, email, password });
+  let { email, username, firstName, lastName, password } = req.body;
+  email =
+    email !== null && email !== undefined ? email.trim().toLowerCase() : email;
+  username =
+    username !== null && username !== undefined
+      ? username.trim().toLowerCase()
+      : username;
+  firstName =
+    firstName !== null && firstName !== undefined
+      ? toTitleCase(firstName)
+      : firstName;
+  lastName =
+    lastName !== null && lastName !== undefined
+      ? toTitleCase(lastName)
+      : lastName;
+  const user = await User.create({
+    email,
+    username,
+    firstName,
+    lastName,
+    password,
+  });
   const token = user.genJWT();
   res.status(StatusCodes.CREATED).json({ userId: user.id, token });
 });
@@ -49,7 +72,6 @@ const login = asyncHandler(async (req, res) => {
   if (!(email && password)) {
     throw new BadRequestError("Please provide email and password");
   }
-
   const user = await User.findOne({ where: { email: email.toLowerCase() } });
   if (!(user && (await user.verifyPassword(password)))) {
     throw new AuthError("Invalid credentials");
