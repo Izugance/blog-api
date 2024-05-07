@@ -86,9 +86,9 @@ const initUser = (sequelize, DataTypes) => {
     User.hasMany(models.Article, {
       foreignKey: {
         name: "authorId",
-        allowNull: false,
+        allowNull: true,
       },
-      onDelete: "CASCADE",
+      onDelete: "SET NULL",
     });
     User.hasMany(models.Comment, {
       foreignKey: {
