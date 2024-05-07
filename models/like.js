@@ -7,8 +7,8 @@ const initLike = (sequelize, DataTypes) => {
       validate: {
         /** Checks that a Like is associated with one comment OR one article. */
         hasOnePost() {
-          let bothNull = this.articleId == null && this.commentId == null;
-          let bothNotNull = this.articleId !== null && this.commentId !== null;
+          let bothNull = !this.articleId && !this.commentId;
+          let bothNotNull = !!this.articleId && !!this.commentId;
           if (bothNotNull || bothNull) {
             throw new Error(
               "A like must be associated with a comment or an article, but not both"
