@@ -20,7 +20,7 @@ const verifyAuthHeader = (header, secret) => {
 const userAuthMiddleware = asyncHandler(async (req, res, next) => {
   const authHeader = req.header("authorization");
   let { payload, token } = verifyAuthHeader(authHeader, process.env.JWT_SECRET);
-  req.user = { id: payload.userId, email: payload.email, token };
+  req.user = { id: payload.userId, username: payload.username, token };
   next();
 });
 
