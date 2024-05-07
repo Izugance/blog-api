@@ -8,6 +8,8 @@ import { ResourceNotFoundError } from "../errors/resource-not-found.js";
 const User = models.User;
 const Follow = models.Follow;
 const Like = models.Like;
+const Article = models.Article;
+const Comment = models.Comment;
 const PAGINATION_LIMIT = 16;
 
 /** GET `<apiRoot>`/users/:username
@@ -74,22 +76,45 @@ const getUserArticles = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ articles });
 });
 
-/** GET `<apiRoot>`/users/current_user/likes
- * Get the current logged-in user's likes.                                   -------Reasonable?
+/** GET `<apiRoot>`/users/current-user/likes
+ * Get the current logged-in user's likes. A `postType` key is included
+ * to indicate if the returned like is for an Article or a Comment.
  *
  * URL params: userId
  *
  * Return: [
  *    {
- *      "postId": `<post id>`,
- *      "postType": `<post type (comment or article)>`, // HOW TO IMPLEMENT? ---------------------------
+ *      "createdAt": `<like creation datetime>`,
+ *      "postType": "article",
+ *      "Comment": {
+ *          "id":   <article id>`,
+ *          "createdAt": `<article creation datetime`,
+ *          "title": `<article title>`,
+ *          "Author": {
+ *              "id": `<author id>`,
+ *              "username": `<author username>`
+ *          }
+ *      }
+ *    },
+ *    {
+ *      "createdAt": `<comment id>`,
+ *      "postType": `<comment>`,
+ *      "Comment": {
+ *          "id": `<comment id>`,
+ *          "createdAt": `<comment creation datetime>`
+ *          "Author": {
+ *              "id": `<author id>`,
+ *              "username": `<author username>`
+ *          }
+ *      }
  *    },
  *    ...
  * ]
  *
  * Success status code: 200
  *
- * DEV NOTES: Do return fields make sense? Include count?
+ * DEV NOTES: Do return fields make sense? Include count? Order by
+ * date.
  */
 const getUserLikes = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
@@ -100,13 +125,35 @@ const getUserLikes = asyncHandler(async (req, res) => {
     },
     offset,
     limit: PAGINATION_LIMIT,
-    attributes: ["articleId", "commentId"],
+    order: [["createdAt", "DESC"]], // Should this be "ASC"?
+    attributes: ["createdAt"],
+    include: [
+      {
+        model: Article,
+        attributes: ["id", "createdAt", "title"],
+        include: {
+          model: User,
+          as: "Author",
+          attributes: ["id", "username"],
+        },
+      },
+      {
+        model: Comment,
+        attributes: ["id", "content", "createdAt"],
+        include: {
+          model: User,
+          as: "Author",
+          attributes: ["id", "username"],
+        },
+      },
+    ],
   });
   likes = likes.map((like) => {
-    if (like.articleId) {
-      return { postId: like.articleId, postType: "Article" };
+    if (!like.Comment) {
+      return { createdAt: like.createdAt, Article: like.Article };
+    } else {
+      return { createdAt: like.createdAt, Comment: like.Comment };
     }
-    return { postId: like.commentId, postType: "Comment" };
   });
   res.status(StatusCodes.OK).json({ likes });
 });
