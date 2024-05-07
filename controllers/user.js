@@ -47,7 +47,8 @@ const getUserByUsername = asyncHandler(async (req, res) => {
  * Return: [
  *    {
  *      "id": `<article id>`,
- *      "title": `<article title>`
+ *      "title": `<article title>`,
+ *      "createdAt": `<article creation datetime>`
  *    },
  *    ...
  * ]
@@ -68,7 +69,7 @@ const getUserArticles = asyncHandler(async (req, res) => {
   let articles = await user.getArticles({
     offset,
     limit: PAGINATION_LIMIT,
-    attributes: ["id", "authorId", "title", "createdAt"],
+    attributes: ["id", "title", "createdAt"],
   });
   articles = articles.map((article) => {
     return article.toJSON();
