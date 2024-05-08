@@ -11,10 +11,10 @@ const User = models.User;
  * Create a user. An error is thrown if the user can't be successfully
  * created. The username can be at most 20 characters and can only
  * include letters, numbers, and the special characters "." and "_". A
- * "." cannot begin a username, but an underscore can. You cannot have
- * > one "." in sequence. A username cannot consist of only numbers or
- * a mix of numbers and the allowed special characters and their
- * allowed combinations only.
+ * "." cannot begin a username, but a "_" can. You cannot have > one
+ * "." in sequence. A username cannot consist of only numbers or a
+ * combination of allowed special characters (even if the rules for
+ * the "." are followed).
  *
  * Body params: email, username, firstName, lastName, password
  *
