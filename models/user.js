@@ -38,7 +38,7 @@ const initUser = (sequelize, DataTypes) => {
         allowNull: false,
         validate: {
           isLowercase: true,
-          is: /^(?!\.)(\.?(?!\.)_*\.?(?!\.))*\d*[a-zA-Z]+\d*((\.?(?!\.)_*\.?(?!\.))*\w*)*\w+$/,
+          is: /^(?!\.)(\d*\.?[a-zA-Z_]+\.?\d*)+\w+$/,
           notEmpty: true,
           len: [1, 20],
         },
