@@ -33,9 +33,10 @@ const initArticle = (sequelize, DataTypes) => {
   // explicitly named fkey) db fields.
   Article.associate = function (models) {
     Article.belongsTo(models.User, {
+      as: "Author",
       foreignKey: {
         name: "authorId",
-        allowNull: false,
+        allowNull: true,
       },
       onDelete: "SET NULL",
     });
@@ -49,7 +50,7 @@ const initArticle = (sequelize, DataTypes) => {
     Article.hasMany(models.Like, {
       foreignKey: {
         name: "articleId",
-        allowNull: false,
+        allowNull: true,
       },
       constraints: false, // Resolves circularity.
       onDelete: "CASCADE",

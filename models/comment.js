@@ -17,8 +17,8 @@ const initComment = (sequelize) => {
       validate: {
         /** Checks that a Comment is associated with one comment OR one article. */
         hasOneParentPost() {
-          let bothNull = this.articleId == null && this.commentId == null;
-          let bothNotNull = this.articleId !== null && this.commentId !== null;
+          let bothNull = !this.articleId && !this.parentCommentId;
+          let bothNotNull = !!this.articleId && !!this.parentCommentId;
           if (bothNotNull || bothNull) {
             throw new Error(
               "A comment must be associated with a comment or an article, but not both"
@@ -49,6 +49,7 @@ const initComment = (sequelize) => {
       onDelete: "CASCADE",
     });
     Comment.belongsTo(models.User, {
+      as: "Author",
       foreignKey: {
         name: "authorId",
         allowNull: false,
