@@ -6,6 +6,7 @@ import { ResourceNotFoundError } from "../errors/index.js";
 import { getOffset } from "../utils/pagination.js";
 
 const Article = models.Article;
+const Comment = models.Comment;
 const Like = models.Like;
 const User = models.User;
 const PAGINATION_LIMIT = 16;
@@ -20,8 +21,11 @@ const PAGINATION_LIMIT = 16;
  * Return: [
  *    {
  *      "id": `<article id>`,
- *      "authorId": `<article author id>`,
- *      "title": `<article title>`
+ *      "title": `<article title>`,
+ *      "Author": {
+ *          "id": `<article author id>`,
+ *          "username": `<article author username>`,
+ *      }
  *    },
  *    ...
  *  ]
@@ -36,13 +40,17 @@ const getAllArticles = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let articles = await Article.findAll({
+    offset,
     limit: PAGINATION_LIMIT,
-    offset: offset,
+    include: {
+      model: User,
+      as: "Author",
+      attributes: ["id", "username"],
+    },
   });
-  // articles = articles.map((article) => {
-  //   return article.toJSON();
-  // });
-  articles = articles.toJSON();
+  articles = articles.map((article) => {
+    return article.toJSON();
+  });
   res.status(StatusCodes.OK).json({ articles });
 });
 
@@ -61,7 +69,7 @@ const createArticle = asyncHandler(async (req, res) => {
   const article = await Article.create({
     authorId: req.user.id,
     title: req.body.title,
-    body: req.body.body,
+    content: req.body.content,
   });
   res.status(StatusCodes.CREATED).json({ id: article.id });
 });
@@ -75,29 +83,31 @@ const createArticle = asyncHandler(async (req, res) => {
  *
  * Return: {
  *    "id": `<article id>`,
- *    "authorId": `<article author id>`,
  *    "title": `<article title>`,
- *    "content": `<article content>`
- *    "createdAt": `<timestamp>`
+ *    "content": `<article content>`,
+ *    "createdAt": `<timestamp>`,
+ *    "Author": {
+ *        "id": `<article author id>`,
+ *        "username": `<article author username>`,
+ *    }
  * }
  *
  * Success status code: 200
  */
 const getArticle = asyncHandler(async (req, res) => {
-  const article = await Article.findById(req.params.articleId, {
-    attributes: ["id", "title", "createdAt"], // Ignore authorId.
+  const article = await Article.findByPk(req.params.articleId, {
+    attributes: ["id", "title", "content", "createdAt"],
     include: {
       model: User,
-      through: ["email", "fullName"], // Virtual fullMame field.
+      as: "Author",
+      attributes: ["id", "username"],
     },
   });
-
   if (!article) {
     throw new ResourceNotFoundError(
-      `Article with id ${req.params.articleId} does not exist`
+      `Article with id '${req.params.articleId}' does not exist`
     );
   }
-
   res.status(StatusCodes.OK).json({ article });
 });
 
@@ -125,16 +135,14 @@ const updateArticle = asyncHandler(async (req, res) => {
     fields: ["title", "content"],
     validate: true,
   });
-
   // Infer article's existence from the number of affected rows.
   if (!nAffectedRows) {
     throw new ResourceNotFoundError(
-      `Article with id ${req.params.articleId} does not exist for user ${
+      `Article with id '${req.params.articleId}' does not exist for user ${
         req.user.id || "anonymous"
       }`
     );
   }
-
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -151,22 +159,20 @@ const updateArticle = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const deleteArticle = asyncHandler(async (req, res) => {
-  const nDeletedRows = await Article.delete({
+  const nDeletedRows = await Article.destroy({
     where: {
       id: req.params.articleId,
       authorId: req.user.id,
     },
   });
-
   // Infer article's existence from the number of deleted rows.
   if (!nDeletedRows) {
     throw new ResourceNotFoundError(
-      `Article with id ${req.params.articleId} does not exist for user '${
+      `Article with id '${req.params.articleId}' does not exist for user '${
         req.user.id || "anonymous"
       }'`
     );
   }
-
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -209,16 +215,14 @@ const unlikeArticle = asyncHandler(async (req, res) => {
       userId: req.user.id,
     },
   });
-
   // Infer article/like existence from the number of deleted rows.
   if (!nDeletedRows) {
     throw new ResourceNotFoundError(
-      ```Article with id ${req.params.articleId} does not exist or user
+      ```Article with id '${req.params.articleId}' does not exist or user
       '${req.user.id}' hasn't liked it
       ```
     );
   }
-
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -232,8 +236,12 @@ const unlikeArticle = asyncHandler(async (req, res) => {
  * Return: [
  *    {
  *      "id": `<comment id>`,
- *      "authorId": `<comment author id>`,
- *      "content": `<comment content>`
+ *      "content": `<comment content>`,
+ *      "createdAt": `<comment creation datetime>`,
+ *      "Author": {
+ *          "id": `<comment author id>`,
+ *          "username": `<comment author username>`
+ *      }
  *    },
  *    ...
  * ]
@@ -241,24 +249,27 @@ const unlikeArticle = asyncHandler(async (req, res) => {
  * Success status code: 200
  *
  * DEV NOTES: Paginate? Select only fields in return. Error if article
- * doesn't exist?
+ * doesn't exist? Order?
  */
 const getArticleComments = asyncHandler(async (req, res) => {
   // Using lazy loading.
   const page = req.query.page || 1;
-  const article = await Article.findById(req.params.articleId);
-
+  const article = await Article.findByPk(req.params.articleId);
   if (!article) {
     throw new ResourceNotFoundError(
-      `Article with id ${req.params.articleId} does not exist`
+      `Article with id '${req.params.articleId}' does not exist`
     );
   }
-
   const offset = getOffset(PAGINATION_LIMIT, page);
   let comments = await article.getComments({
     limit: PAGINATION_LIMIT,
     offset: offset,
-    attributes: ["id", "authorId", "content", "createdAt"],
+    attributes: ["id", "content", "createdAt"],
+    include: {
+      model: User,
+      as: "Author",
+      attributes: ["id", "username"],
+    },
   });
   comments = comments.map((comment) => {
     return comment.toJSON();
@@ -275,7 +286,7 @@ const getArticleComments = asyncHandler(async (req, res) => {
  * Body params: content
  *
  * Return: [
- *    {"id": <comment id>}
+ *    {"id": `<comment id>`}
  * ]
  *
  * Success status code: 200
@@ -283,16 +294,18 @@ const getArticleComments = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const createArticleComment = asyncHandler(async (req, res) => {
-  // Using lazy loading.
-  const article = await Article.findById(req.params.articleId);
-
+  const article = await Article.findByPk(req.params.articleId);
   if (!article) {
     throw new ResourceNotFoundError(
-      `Article with id ${req.params.articleId} does not exist`
+      `Article with id '${req.params.articleId}' does not exist`
     );
   }
   // YOUR ERROR HANDLER MIDDLEWARE SHOULD BE ABLE TO HANDLE CREATION ERRORS ----------------------------
-  const comment = await article.createComment(req.body);
+  const comment = await Comment.create({
+    articleId: req.params.articleId,
+    authorId: req.user.id,
+    content: req.body.content,
+  });
   res.status(StatusCodes.CREATED).json({ id: comment.id });
 });
 

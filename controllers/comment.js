@@ -6,6 +6,7 @@ import { ResourceNotFoundError } from "../errors/index.js";
 import { getOffset } from "../utils/pagination.js";
 
 const Comment = models.Comment;
+const User = models.User;
 const Like = models.Like;
 const PAGINATION_LIMIT = 16;
 
@@ -19,9 +20,14 @@ const PAGINATION_LIMIT = 16;
  * Return: [
  *    {
  *      "id": `<comment id>`,
- *      "authorId": `<comment author id>`,
- *      "content": `<comment content>`
- *    }
+ *      "content": `<comment content>`,
+ *      "createdAt": `<comment creation datetime>`,
+ *      "Author": {
+ *          "id": `<comment author id>`,
+ *          "username": `<comment author username>`
+ *       }
+ *    },
+ *    ...
  * ]
  *
  * Success status code: 200
@@ -30,28 +36,27 @@ const PAGINATION_LIMIT = 16;
  * doesn't exist?
  */
 const getCommentComments = asyncHandler(async (req, res) => {
-  // const comment = await Comment.findById(req.params.commentId)
-  //   .select("comments")
-  //   .exec();
   // Using lazy loading.
-  const comment = await Comment.findById(req.params.commentId);
-
+  const comment = await Comment.findByPk(req.params.commentId);
   if (!comment)
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist`
     );
-
   const page = req.query.page || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
-  let comments = comment.getComments({
+  let comments = await comment.getComments({
     limit: PAGINATION_LIMIT,
     offset: offset,
-    attributes: ["id", "authorId", "content", "createdAt"],
+    attributes: ["id", "content", "createdAt"],
+    include: {
+      model: User,
+      as: "Author",
+      attributes: ["id", "username"],
+    },
   });
-  // comments = comments.map((comment) => {
-  //   return comment.toJSON();
-  // });
-  comments = comments.toJSON();
+  comments = comments.map((comment) => {
+    return comment.toJSON();
+  });
   res.status(StatusCodes.OK).json({ comments });
 });
 
@@ -74,7 +79,7 @@ const getCommentComments = asyncHandler(async (req, res) => {
 const createCommentComment = asyncHandler(async (req, res) => {
   const comment = await Comment.create({
     authorId: req.user.id,
-    commentId: req.params.commentId,
+    parentCommentId: req.params.commentId,
     content: req.body.content,
   });
   res.status(StatusCodes.CREATED).json({ id: comment.id });
@@ -89,24 +94,31 @@ const createCommentComment = asyncHandler(async (req, res) => {
  *
  * Return: {
  *    "id": `<comment id>`,
- *    "authorId": `<comment author id>`,
- *    "content": `<comment content>`
+ *    "content": `<comment content>`,
+ *    "createdAt": `<comment creation datetime>`,
+ *    "Author": {
+ *        "id": `<comment author id>`,
+ *        "username": `<comment author username>`
+ *    }
  * }
  *
  * Success status code: 200
  */
 const getComment = asyncHandler(async (req, res) => {
-  let comment = await Comment.findById(req.params.commentId, {
-    attributes: ["id", "authorId", "content", "createdAt"],
+  let comment = await Comment.findByPk(req.params.commentId, {
+    attributes: ["id", "content", "createdAt"],
+    include: {
+      model: User,
+      as: "Author",
+      attributes: ["id", "username"],
+    },
   });
-
   if (!comment) {
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist
       }`
     );
   }
-
   comment = comment.toJSON();
   res.status(StatusCodes.OK).json({ comment });
 });
@@ -118,11 +130,7 @@ const getComment = asyncHandler(async (req, res) => {
  *
  * URL params: commentId
  *
- * Return: {
- *    "id": `<comment id>`,
- *    "authorId": `<comment author id>`,
- *    "content": `<comment content>`
- * }
+ * Return: null
  *
  * Success status code: 204
  */
@@ -133,7 +141,6 @@ const deleteComment = asyncHandler(async (req, res) => {
       authorId: req.user.id,
     },
   });
-
   if (!comment) {
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist for user ${
@@ -141,7 +148,6 @@ const deleteComment = asyncHandler(async (req, res) => {
       }`
     );
   }
-
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -157,11 +163,12 @@ const deleteComment = asyncHandler(async (req, res) => {
  *
  * Success status code: 201
  *
- * DEV NOTES: Error if comment doesn't exist?
+ * DEV NOTES: Error if comment doesn't exist? Handled by fkey
+ * constraint.
  */
 const likeComment = asyncHandler(async (req, res) => {
   await Like.create({
-    commentId: req.params.articleId, // INDEX ----------------------------------------------
+    commentId: req.params.commentId, // INDEX ----------------------------------------------
     userId: req.user.id,
   });
   res.status(StatusCodes.CREATED).json(null);
@@ -185,17 +192,17 @@ const unlikeComment = asyncHandler(async (req, res) => {
   const nDeletedRows = await Like.destroy({
     where: {
       commentId: req.params.commentId, // ----------------------------------- INDEX.
-      authorId: req.user.id,
+      userId: req.user.id,
     },
   });
-
   // Infer comment/like existence from the number of deleted rows.
   if (!nDeletedRows) {
-    ```Comment with id ${req.params.commentId} does not exist or user
+    throw new ResourceNotFoundError(
+      `Comment with id '${req.params.commentId}' does not exist or user
       '${req.user.id}' hasn't liked it
-      ```;
+      `
+    );
   }
-
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
