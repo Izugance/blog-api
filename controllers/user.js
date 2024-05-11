@@ -58,7 +58,7 @@ const getUserByUsername = asyncHandler(async (req, res) => {
  * DEV NOTES: Include content in return?
  */
 const getUserArticles = asyncHandler(async (req, res) => {
-  const user = await User.findByPk(req.params.userId);
+  const user = await User.findByPk(req.params.userId, { attributes: ["id"] });
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
@@ -184,7 +184,7 @@ const getUserLikes = asyncHandler(async (req, res) => {
  * Order? No need for user query due to fkey constraint on `Follow`?
  */
 const getUserFollowing = asyncHandler(async (req, res) => {
-  const user = await User.findByPk(req.params.userId);
+  const user = await User.findByPk(req.params.userId, { attributes: ["id"] });
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
@@ -235,7 +235,7 @@ const getUserFollowing = asyncHandler(async (req, res) => {
  *
  */
 const getUserFollowers = asyncHandler(async (req, res) => {
-  const user = await User.findByPk(req.params.userId);
+  const user = await User.findByPk(req.params.userId, { attributes: ["id"] });
   if (!user) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
@@ -275,7 +275,9 @@ const getUserFollowers = asyncHandler(async (req, res) => {
  * targetUser due to fkey in model?
  */
 const followUser = asyncHandler(async (req, res) => {
-  const targetUser = await User.findByPk(req.params.userId);
+  const targetUser = await User.findByPk(req.params.userId, {
+    attributes: ["id"],
+  });
   if (!targetUser) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
@@ -301,7 +303,9 @@ const followUser = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if user doesn't exist?
  */
 const unfollowUser = asyncHandler(async (req, res) => {
-  const targetUser = await User.findByPk(req.params.userId);
+  const targetUser = await User.findByPk(req.params.userId, {
+    attributes: ["id"],
+  });
   if (!targetUser) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
