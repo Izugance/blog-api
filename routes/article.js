@@ -7,6 +7,7 @@ import {
   getArticle,
   updateArticle,
   deleteArticle,
+  getArticleLikes,
   likeArticle,
   unlikeArticle,
   getArticleComments,
@@ -33,6 +34,7 @@ articleRouter
 
 articleRouter
   .route("/:articleId/likes")
+  .get(userAuthMiddleware, getArticleLikes)
   .post(userAuthMiddleware, likeArticle)
   .delete(userAuthMiddleware, unlikeArticle);
 

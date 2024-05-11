@@ -6,6 +6,7 @@ import {
   createCommentComment,
   getComment,
   deleteComment,
+  getCommentLikes,
   likeComment,
   unlikeComment,
 } from "../controllers/comment.js";
@@ -24,6 +25,7 @@ commentRouter
 
 commentRouter
   .route("/:commentId/likes")
+  .get(userAuthMiddleware, getCommentLikes)
   .post(userAuthMiddleware, likeComment)
   .delete(userAuthMiddleware, unlikeComment);
 
