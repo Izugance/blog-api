@@ -72,7 +72,10 @@ const login = asyncHandler(async (req, res) => {
   if (!(email && password)) {
     throw new BadRequestError("Please provide email and password");
   }
-  const user = await User.findOne({ where: { email: email.toLowerCase() } });
+  const user = await User.findOne({
+    where: { email: email.toLowerCase() },
+    attributes: ["id", "username", "password"],
+  });
   if (!(user && (await user.verifyPassword(password)))) {
     throw new AuthError("Invalid credentials");
   }
