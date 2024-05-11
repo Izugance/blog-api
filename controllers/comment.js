@@ -37,7 +37,9 @@ const PAGINATION_LIMIT = 16;
  */
 const getCommentComments = asyncHandler(async (req, res) => {
   // Using lazy loading.
-  const comment = await Comment.findByPk(req.params.commentId);
+  const comment = await Comment.findByPk(req.params.commentId, {
+    attributes: ["id"],
+  });
   if (!comment)
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist`
@@ -151,6 +153,53 @@ const deleteComment = asyncHandler(async (req, res) => {
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
+/** GET `<apiRoot>`/articles/:articleId/likes
+ *
+ * Get users that have liked a comment.
+ *
+ * URL params: articleId
+ *
+ * Return: [
+ *    {
+ *      "User": {
+ *          "id": `<user id>`,
+ *          "username": `<user username>`
+ *      }
+ *    },
+ *    ...
+ * ]
+ *
+ * Success status code: 200
+ *
+ * DEV NOTES: Error if comment doesn't exist? Include count?
+ */
+const getCommentLikes = asyncHandler(async (req, res) => {
+  const comment = await Comment.findByPk(req.params.commentId, {
+    attributes: ["id"],
+  });
+  if (!comment) {
+    throw new ResourceNotFoundError(
+      `Comment with id '${req.params.commentId}' does not exist`
+    );
+  }
+  const page = req.query.page || 1;
+  const offset = getOffset(PAGINATION_LIMIT, page);
+  let likes = await Like.findAll({
+    where: { commentId: req.params.commentId },
+    offset,
+    limit: PAGINATION_LIMIT,
+    attributes: [],
+    include: {
+      model: User,
+      attributes: ["id", "username"],
+    },
+  });
+  likes = likes.map((like) => {
+    return like.toJSON();
+  });
+  res.status(StatusCodes.CREATED).json({ likes });
+});
+
 /** CREATE `<apiRoot>`/comments/:commentId/likes
  *
  * Like a comment.
@@ -211,6 +260,7 @@ export {
   createCommentComment,
   getComment,
   deleteComment,
+  getCommentLikes,
   likeComment,
   unlikeComment,
 };

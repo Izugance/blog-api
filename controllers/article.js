@@ -176,6 +176,53 @@ const deleteArticle = asyncHandler(async (req, res) => {
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
+/** GET `<apiRoot>`/articles/:articleId/likes
+ *
+ * Get users that have liked an article.
+ *
+ * URL params: articleId
+ *
+ * Return: [
+ *    {
+ *      "User": {
+ *          "id": `<user id>`,
+ *          "username": `<user username>`
+ *      }
+ *    },
+ *    ...
+ * ]
+ *
+ * Success status code: 200
+ *
+ * DEV NOTES: Error if article doesn't exist? Include count?
+ */
+const getArticleLikes = asyncHandler(async (req, res) => {
+  const article = await Article.findByPk(req.params.articleId, {
+    attributes: ["id"],
+  });
+  if (!article) {
+    throw new ResourceNotFoundError(
+      `Article with id '${req.params.articleId}' does not exist`
+    );
+  }
+  const page = req.query.page || 1;
+  const offset = getOffset(PAGINATION_LIMIT, page);
+  let likes = await Like.findAll({
+    where: { articleId: req.params.articleId },
+    offset,
+    limit: PAGINATION_LIMIT,
+    attributes: [],
+    include: {
+      model: User,
+      attributes: ["id", "username"],
+    },
+  });
+  likes = likes.map((like) => {
+    return like.toJSON();
+  });
+  res.status(StatusCodes.CREATED).json({ likes });
+});
+
 /** CREATE `<apiRoot>`/articles/:articleId/likes
  *
  * Like an article.
@@ -254,7 +301,9 @@ const unlikeArticle = asyncHandler(async (req, res) => {
 const getArticleComments = asyncHandler(async (req, res) => {
   // Using lazy loading.
   const page = req.query.page || 1;
-  const article = await Article.findByPk(req.params.articleId);
+  const article = await Article.findByPk(req.params.articleId, {
+    attributes: ["id"],
+  });
   if (!article) {
     throw new ResourceNotFoundError(
       `Article with id '${req.params.articleId}' does not exist`
@@ -294,7 +343,9 @@ const getArticleComments = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const createArticleComment = asyncHandler(async (req, res) => {
-  const article = await Article.findByPk(req.params.articleId);
+  const article = await Article.findByPk(req.params.articleId, {
+    attributes: ["id"],
+  });
   if (!article) {
     throw new ResourceNotFoundError(
       `Article with id '${req.params.articleId}' does not exist`
@@ -315,6 +366,7 @@ export {
   getArticle,
   updateArticle,
   deleteArticle,
+  getArticleLikes,
   likeArticle,
   unlikeArticle,
   getArticleComments,
