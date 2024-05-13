@@ -14,7 +14,7 @@ import {
 const userRouter = express.Router();
 
 userRouter.route("/:username").get(getUserByUsername);
-userRouter.route("/:userId/articles").get(getUserArticles);
+userRouter.route("/:username/articles").get(getUserArticles);
 userRouter.route("/:userId/following").get(getUserFollowing);
 userRouter
   .route("/:userId/followers")

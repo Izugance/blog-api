@@ -38,12 +38,11 @@ const getUserByUsername = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ user });
 });
 
-/** GET `<apiRoot>`/users/:userId/articles
 /** GET `<apiRoot>`/users/:username/articles
  *
- * Get articles belonging to a user.
+ * Get articles belonging to a user using their username.
  *
- * URL params: userId
+ * URL params: username
  *
  * Return: [
  *    {
@@ -59,15 +58,13 @@ const getUserByUsername = asyncHandler(async (req, res) => {
  * DEV NOTES: Include content in return?
  */
 const getUserArticles = asyncHandler(async (req, res) => {
-  // const username = req.params.username.trim().toLowerCase();
-  // const user = await User.findOne(
-  //   { where: { username } },
-  //   { attributes: ["id"] }
-  // );
-  const user = await User.findByPk(req.params.userId);
+  const username = req.params.username.trim().toLowerCase();
+  const user = await User.findOne(
+    { where: { username } },
+    { attributes: ["id"] }
+  );
   if (!user) {
     throw new ResourceNotFoundError(
-      // `User with username '${req.params.username}' does not exist`
       `User with username '${req.params.userId}' does not exist`
     );
   }
