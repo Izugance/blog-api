@@ -1,0 +1,15 @@
+{
+  "name": "migrations-src",
+  "version": "1.0.0",
+  "description": "Migration application for blog-api",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Izugance",
+  "license": "ISC",
+  "dependencies": {
+    "sequelize": "^6.37.3",
+    "sequelize-cli": "^6.6.2"
+  }
+}

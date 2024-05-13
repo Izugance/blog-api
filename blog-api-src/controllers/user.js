@@ -39,6 +39,7 @@ const getUserByUsername = asyncHandler(async (req, res) => {
 });
 
 /** GET `<apiRoot>`/users/:userId/articles
+/** GET `<apiRoot>`/users/:username/articles
  *
  * Get articles belonging to a user.
  *
@@ -58,10 +59,16 @@ const getUserByUsername = asyncHandler(async (req, res) => {
  * DEV NOTES: Include content in return?
  */
 const getUserArticles = asyncHandler(async (req, res) => {
-  const user = await User.findByPk(req.params.userId, { attributes: ["id"] });
+  // const username = req.params.username.trim().toLowerCase();
+  // const user = await User.findOne(
+  //   { where: { username } },
+  //   { attributes: ["id"] }
+  // );
+  const user = await User.findByPk(req.params.userId);
   if (!user) {
     throw new ResourceNotFoundError(
-      `User with id '${req.params.userId}' does not exist`
+      // `User with username '${req.params.username}' does not exist`
+      `User with username '${req.params.userId}' does not exist`
     );
   }
   const page = Number(req.query.page) || 1;
