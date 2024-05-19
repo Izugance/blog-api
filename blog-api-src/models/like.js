@@ -16,6 +16,18 @@ const initLike = (sequelize, DataTypes) => {
           }
         },
       },
+      indexes: [
+        {
+          name: "article_index",
+          using: "HASH",
+          fields: ["articleId"],
+        },
+        {
+          name: "comment_index",
+          using: "HASH",
+          fields: ["commentId"],
+        },
+      ],
     }
   );
 

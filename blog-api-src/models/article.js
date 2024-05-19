@@ -17,6 +17,23 @@ const initArticle = (sequelize, DataTypes) => {
           len: [1, 10000],
         },
       },
+      nLikes: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+          min: 0,
+        },
+      },
+      nComments: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+          min: 0,
+        },
+      },
+      
     },
     {
       // Options.

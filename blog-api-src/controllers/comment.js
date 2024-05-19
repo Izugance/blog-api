@@ -1,11 +1,13 @@
 import asyncHandler from "express-async-handler";
 import { StatusCodes } from "http-status-codes";
 
-import { models } from "../models/index.js";
+import { models, sequelize } from "../models/index.js";
 import { ResourceNotFoundError } from "../errors/index.js";
 import { getOffset } from "../utils/pagination.js";
+import { ValidationError } from "sequelize";
 
 const Comment = models.Comment;
+const Article = models.Article;
 const User = models.User;
 const Like = models.Like;
 const PAGINATION_LIMIT = 16;
@@ -13,7 +15,7 @@ const PAGINATION_LIMIT = 16;
 /** GET `<apiRoot>`/comments/:commentId/comments
  *
  * Get a comment's comments. A max of 16 comments is returned per
- * page.
+ * request.
  *
  * URL params: articleId
  *
@@ -22,6 +24,8 @@ const PAGINATION_LIMIT = 16;
  *      "id": `<comment id>`,
  *      "content": `<comment content>`,
  *      "createdAt": `<comment creation datetime>`,
+ *      "nComments": `<comment comment count>`,
+ *      "nLikes": `<comment like count>`,
  *      "Author": {
  *          "id": `<comment author id>`,
  *          "username": `<comment author username>`
@@ -49,7 +53,7 @@ const getCommentComments = asyncHandler(async (req, res) => {
   let comments = await comment.getComments({
     limit: PAGINATION_LIMIT,
     offset: offset,
-    attributes: ["id", "content", "createdAt"],
+    attributes: ["id", "content", "createdAt", "nComments", "nLikes"],
     include: {
       model: User,
       as: "Author",
@@ -79,10 +83,23 @@ const getCommentComments = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if comment doesn't exist?
  */
 const createCommentComment = asyncHandler(async (req, res) => {
-  const comment = await Comment.create({
-    authorId: req.user.id,
-    parentCommentId: req.params.commentId,
-    content: req.body.content,
+  const comment = await sequelize.transaction(async (t) => {
+    const comment = await Comment.create({
+      authorId: req.user.id,
+      parentCommentId: req.params.commentId,
+      content: req.body.content,
+    });
+    await Comment.increment(
+      "nComments",
+      { where: { id: req.params.commentId }, by: 1, returning: false },
+      { transaction: t }
+    );
+    await User.increment(
+      "nComments",
+      { where: { id: req.user.id }, by: 1, returning: false },
+      { transaction: t }
+    );
+    return comment;
   });
   res.status(StatusCodes.CREATED).json({ id: comment.id });
 });
@@ -98,6 +115,8 @@ const createCommentComment = asyncHandler(async (req, res) => {
  *    "id": `<comment id>`,
  *    "content": `<comment content>`,
  *    "createdAt": `<comment creation datetime>`,
+ *    "nComments": `<comment comment count>`,
+ *    "nLikes": `<comment like count>`,
  *    "Author": {
  *        "id": `<comment author id>`,
  *        "username": `<comment author username>`
@@ -108,7 +127,7 @@ const createCommentComment = asyncHandler(async (req, res) => {
  */
 const getComment = asyncHandler(async (req, res) => {
   let comment = await Comment.findByPk(req.params.commentId, {
-    attributes: ["id", "content", "createdAt"],
+    attributes: ["id", "content", "createdAt", "nComments", "nLikes"],
     include: {
       model: User,
       as: "Author",
@@ -137,11 +156,8 @@ const getComment = asyncHandler(async (req, res) => {
  * Success status code: 204
  */
 const deleteComment = asyncHandler(async (req, res) => {
-  const comment = await Comment.destroy({
-    where: {
-      id: req.params.commentId,
-      authorId: req.user.id,
-    },
+  const comment = await Comment.findByPk(req.params.commentId, {
+    attributes: ["id", "articleId", "parentCommentId"],
   });
   if (!comment) {
     throw new ResourceNotFoundError(
@@ -150,6 +166,27 @@ const deleteComment = asyncHandler(async (req, res) => {
       }`
     );
   }
+  await sequelize.transaction(async (t) => {
+    await comment.destroy();
+    if (comment.articleId) {
+      await Article.decrement(
+        "nComments",
+        { where: { id: comment.articleId }, by: 1, returning: false },
+        { transaction: t }
+      );
+    } else {
+      await Comment.decrement(
+        "nComments",
+        { where: { id: comment.parentCommentId }, by: 1, returning: false },
+        { transaction: t }
+      );
+    }
+    await User.decrement(
+      "nComments",
+      { where: { id: req.user.id }, by: 1, returning: false },
+      { transaction: t }
+    );
+  });
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -216,9 +253,36 @@ const getCommentLikes = asyncHandler(async (req, res) => {
  * constraint.
  */
 const likeComment = asyncHandler(async (req, res) => {
-  await Like.create({
-    commentId: req.params.commentId, // INDEX ----------------------------------------------
-    userId: req.user.id,
+  const like = await Like.findOne({
+    where: { userId: req.user.id, commentId: req.params.commentId },
+    attributes: ["id"],
+  });
+  if (like) {
+    throw new ValidationError("Duplicate like creation attempt");
+  }
+  await sequelize.transaction(async (t) => {
+    await Like.create({
+      commentId: req.params.commentId,
+      userId: req.user.id,
+    });
+    await Comment.increment(
+      "nLikes",
+      {
+        where: { id: req.params.commentId },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    await User.increment(
+      "nLikes",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
   });
   res.status(StatusCodes.CREATED).json(null);
 });
@@ -238,20 +302,40 @@ const likeComment = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if comment doesn't exist?
  */
 const unlikeComment = asyncHandler(async (req, res) => {
-  const nDeletedRows = await Like.destroy({
-    where: {
-      commentId: req.params.commentId, // ----------------------------------- INDEX.
-      userId: req.user.id,
-    },
-  });
-  // Infer comment/like existence from the number of deleted rows.
-  if (!nDeletedRows) {
-    throw new ResourceNotFoundError(
-      `Comment with id '${req.params.commentId}' does not exist or user
-      '${req.user.id}' hasn't liked it
-      `
+  await sequelize.transaction(async (t) => {
+    const nDeletedRows = await Like.destroy({
+      where: {
+        commentId: req.params.commentId, // ----------------------------------- INDEX.
+        userId: req.user.id,
+      },
+    });
+    // Infer comment/like existence from the number of deleted rows.
+    if (!nDeletedRows) {
+      throw new ResourceNotFoundError(
+        `Comment with id '${req.params.commentId}' does not exist or user
+        '${req.user.id}' hasn't liked it
+        `
+      );
+    }
+    await Comment.decrement(
+      "nLikes",
+      {
+        where: { id: req.params.commentId },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
     );
-  }
+    await User.decrement(
+      "nLikes",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+  });
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 

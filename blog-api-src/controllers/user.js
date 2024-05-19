@@ -1,7 +1,7 @@
 import asyncHandler from "express-async-handler";
 import { StatusCodes } from "http-status-codes";
 
-import { models } from "../models/index.js";
+import { models, sequelize } from "../models/index.js";
 import { getOffset } from "../utils/pagination.js";
 import { ResourceNotFoundError } from "../errors/resource-not-found.js";
 
@@ -11,6 +11,45 @@ const Like = models.Like;
 const Article = models.Article;
 const Comment = models.Comment;
 const PAGINATION_LIMIT = 16;
+
+/** GET `<apiRoot>`/users/current-user/profile
+ *
+ * Get the logged-in user's profile.
+ *
+ * Return: {
+ *    "id": `<user id>`,
+ *    "username": `<user username>`,
+ *    "firstName": `<user first name>`,
+ *    "lastName": `<user last name>`,
+ *    "nArticles": `<user article count>`,
+ *    "nComments": `<user comment count>`,
+ *    "nLikes": `<user like count>`,
+ *    "nFollowers": `<user follower count>`,
+ *    "nFollowing": `<user following count>`,
+ *    "createdAt": `<user creation datetime>`
+ * }
+ *
+ * Success status code: 200
+ *
+ * DEV NOTES: Select fields in return.
+ */
+const getCurrentUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user.id, {
+    attributes: [
+      "id",
+      "username",
+      "firstName",
+      "lastName",
+      "nArticles",
+      "nComments",
+      "nLikes",
+      "nFollowers",
+      "nFollowing",
+      "createdAt",
+    ],
+  });
+  res.status(StatusCodes.OK).json({ user });
+});
 
 /** GET `<apiRoot>`/users/:username
  *
@@ -22,7 +61,11 @@ const PAGINATION_LIMIT = 16;
  *    "id": `<user id>`,
  *    "username": `<user username>`,
  *    "firstName": `<user first name>`,
- *    "lastName": `<user last name>`
+ *    "lastName": `<user last name>`,
+ *    "nArticles": `<user article count>`,
+ *    "nFollowers": `<user follower count>`,
+ *    "nFollowing": `<user following count>`,
+ *    "createdAt": `<user creation datetime>`
  * }
  *
  * Success status code: 200
@@ -33,7 +76,16 @@ const getUserByUsername = asyncHandler(async (req, res) => {
   const username = req.params.username.trim().toLowerCase();
   const user = await User.findOne({
     where: { username },
-    attributes: ["id", "username", "firstName", "lastName"],
+    attributes: [
+      "id",
+      "username",
+      "firstName",
+      "lastName",
+      "nArticles",
+      "nFollowers",
+      "nFollowing",
+      "createdAt",
+    ],
   });
   res.status(StatusCodes.OK).json({ user });
 });
@@ -287,9 +339,29 @@ const followUser = asyncHandler(async (req, res) => {
       `User with id '${req.params.userId}' does not exist`
     );
   }
-  await Follow.create({
-    followingUserId: req.user.id,
-    followedUserId: targetUser.id,
+  await sequelize.transaction(async (t) => {
+    await Follow.create({
+      followingUserId: req.user.id,
+      followedUserId: targetUser.id,
+    });
+    await User.increment(
+      "nFollowers",
+      {
+        where: { id: targetUser.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    await User.increment(
+      "nFollowing",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
   });
   res.status(StatusCodes.CREATED).json(null);
 });
@@ -315,17 +387,38 @@ const unfollowUser = asyncHandler(async (req, res) => {
       `User with id '${req.params.userId}' does not exist`
     );
   }
-  // INFER FOLLOWER EXISTENCE? --------------------------------------------------------
-  await Follow.destroy({
-    where: {
-      followingUserId: req.user.id,
-      followedUserId: targetUser.id,
-    },
+  await sequelize.transaction(async (t) => {
+    // INFER FOLLOWER EXISTENCE? --------------------------------------------------------
+    await Follow.destroy({
+      where: {
+        followingUserId: req.user.id,
+        followedUserId: targetUser.id,
+      },
+    });
+    await User.decrement(
+      "nFollowers",
+      {
+        where: { id: targetUser.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    await User.decrement(
+      "nFollowing",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
   });
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
 export {
+  getCurrentUserProfile,
   getUserByUsername,
   getUserArticles,
   getUserFollowing,

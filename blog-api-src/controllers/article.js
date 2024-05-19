@@ -1,7 +1,8 @@
 import asyncHandler from "express-async-handler";
 import { StatusCodes } from "http-status-codes";
+import { ValidationError } from "sequelize";
 
-import { models } from "../models/index.js";
+import { models, sequelize } from "../models/index.js";
 import { ResourceNotFoundError } from "../errors/index.js";
 import { getOffset } from "../utils/pagination.js";
 
@@ -22,6 +23,8 @@ const PAGINATION_LIMIT = 16;
  *    {
  *      "id": `<article id>`,
  *      "title": `<article title>`,
+ *      "nComments": `<article comment count>`,
+ *      "nLikes": `<article like count>`,
  *      "Author": {
  *          "id": `<article author id>`,
  *          "username": `<article author username>`,
@@ -66,10 +69,25 @@ const getAllArticles = asyncHandler(async (req, res) => {
  * Success status code: 201
  */
 const createArticle = asyncHandler(async (req, res) => {
-  const article = await Article.create({
-    authorId: req.user.id,
-    title: req.body.title,
-    content: req.body.content,
+  const article = await sequelize.transaction(async (t) => {
+    const article = await Article.create(
+      {
+        authorId: req.user.id,
+        title: req.body.title,
+        content: req.body.content,
+      },
+      { transaction: t }
+    );
+    await User.increment(
+      "nArticles",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    return article;
   });
   res.status(StatusCodes.CREATED).json({ id: article.id });
 });
@@ -86,6 +104,8 @@ const createArticle = asyncHandler(async (req, res) => {
  *    "title": `<article title>`,
  *    "content": `<article content>`,
  *    "createdAt": `<timestamp>`,
+ *    "nComments": `<article comment count>`,
+ *    "nLikes":  `<article like count>`,
  *    "Author": {
  *        "id": `<article author id>`,
  *        "username": `<article author username>`,
@@ -96,7 +116,7 @@ const createArticle = asyncHandler(async (req, res) => {
  */
 const getArticle = asyncHandler(async (req, res) => {
   const article = await Article.findByPk(req.params.articleId, {
-    attributes: ["id", "title", "content", "createdAt"],
+    attributes: ["id", "title", "content", "createdAt", "nComments", "nLikes"],
     include: {
       model: User,
       as: "Author",
@@ -159,20 +179,31 @@ const updateArticle = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const deleteArticle = asyncHandler(async (req, res) => {
-  const nDeletedRows = await Article.destroy({
-    where: {
-      id: req.params.articleId,
-      authorId: req.user.id,
-    },
-  });
-  // Infer article's existence from the number of deleted rows.
-  if (!nDeletedRows) {
-    throw new ResourceNotFoundError(
-      `Article with id '${req.params.articleId}' does not exist for user '${
-        req.user.id || "anonymous"
-      }'`
+  await sequelize.transaction(async (t) => {
+    const nDeletedRows = await Article.destroy({
+      where: {
+        id: req.params.articleId,
+        authorId: req.user.id,
+      },
+    });
+    // Infer article's existence from the number of deleted rows.
+    if (!nDeletedRows) {
+      throw new ResourceNotFoundError(
+        `Article with id '${req.params.articleId}' does not exist for user '${
+          req.user.id || "anonymous"
+        }'`
+      );
+    }
+    await User.decrement(
+      "nArticles",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
     );
-  }
+  });
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -233,12 +264,45 @@ const getArticleLikes = asyncHandler(async (req, res) => {
  *
  * Success status code: 201
  *
- * DEV NOTES: Error if article doesn't exist?
+ * DEV NOTES: Error if article doesn't exist? Too weird a fix?
  */
 const likeArticle = asyncHandler(async (req, res) => {
-  await Like.create({
-    articleId: req.params.articleId, // INDEX ----------------------------------------------
-    userId: req.user.id,
+  const like = await Like.findOne({
+    where: {
+      userId: req.user.id,
+      articleId: req.params.articleId,
+    },
+    attributes: ["id"],
+  });
+  if (like) {
+    throw new ValidationError("Duplicate like creation attempt");
+  }
+  await sequelize.transaction(async (t) => {
+    await Like.create(
+      {
+        articleId: req.params.articleId,
+        userId: req.user.id,
+      },
+      { transaction: t }
+    );
+    await Article.increment(
+      "nLikes",
+      {
+        where: { id: req.params.articleId },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    await User.increment(
+      "nLikes",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
   });
   res.status(StatusCodes.CREATED).json(null);
 });
@@ -253,23 +317,43 @@ const likeArticle = asyncHandler(async (req, res) => {
  *
  * Success status code: 204
  *
- * DEV NOTES: Error if article doesn't exist?
+ * DEV NOTES:
  */
 const unlikeArticle = asyncHandler(async (req, res) => {
-  const nDeletedRows = await Article.destroy({
-    where: {
-      articleId: req.params.articleId, // INDEX -----------------------------------------
-      userId: req.user.id,
-    },
-  });
-  // Infer article/like existence from the number of deleted rows.
-  if (!nDeletedRows) {
-    throw new ResourceNotFoundError(
-      ```Article with id '${req.params.articleId}' does not exist or user
-      '${req.user.id}' hasn't liked it
-      ```
+  await sequelize.transaction(async (t) => {
+    const nDeletedRows = await Like.destroy({
+      where: {
+        articleId: req.params.articleId, // INDEX -----------------------------------------
+        userId: req.user.id,
+      },
+    });
+    // Infer article/like existence from the number of deleted rows.
+    if (!nDeletedRows) {
+      throw new ResourceNotFoundError(
+        ```Article with id '${req.params.articleId}' does not exist or user
+        '${req.user.id}' hasn't liked it
+        ```
+      );
+    }
+    await Article.decrement(
+      "nLikes",
+      {
+        where: { id: req.params.articleId },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
     );
-  }
+    await User.decrement(
+      "nLikes",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+  });
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -344,7 +428,7 @@ const getArticleComments = asyncHandler(async (req, res) => {
  */
 const createArticleComment = asyncHandler(async (req, res) => {
   const article = await Article.findByPk(req.params.articleId, {
-    attributes: ["id"],
+    attributes: ["id", "nComments"],
   });
   if (!article) {
     throw new ResourceNotFoundError(
@@ -352,10 +436,30 @@ const createArticleComment = asyncHandler(async (req, res) => {
     );
   }
   // YOUR ERROR HANDLER MIDDLEWARE SHOULD BE ABLE TO HANDLE CREATION ERRORS ----------------------------
-  const comment = await Comment.create({
-    articleId: req.params.articleId,
-    authorId: req.user.id,
-    content: req.body.content,
+  const comment = await sequelize.transaction(async (t) => {
+    const comment = await Comment.create({
+      articleId: req.params.articleId,
+      authorId: req.user.id,
+      content: req.body.content,
+    });
+    await article.increment(
+      "nComments",
+      {
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    await User.increment(
+      "nComments",
+      {
+        where: { id: req.user.id },
+        by: 1,
+        returning: false,
+      },
+      { transaction: t }
+    );
+    return comment;
   });
   res.status(StatusCodes.CREATED).json({ id: comment.id });
 });
