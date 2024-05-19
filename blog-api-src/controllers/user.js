@@ -12,6 +12,45 @@ const Article = models.Article;
 const Comment = models.Comment;
 const PAGINATION_LIMIT = 16;
 
+/** GET `<apiRoot>`/users/current-user/profile
+ *
+ * Get the logged-in user's profile.
+ *
+ * Return: {
+ *    "id": `<user id>`,
+ *    "username": `<user username>`,
+ *    "firstName": `<user first name>`,
+ *    "lastName": `<user last name>`,
+ *    "nArticles": `<user article count>`,
+ *    "nComments": `<user comment count>`,
+ *    "nLikes": `<user like count>`,
+ *    "nFollowers": `<user follower count>`,
+ *    "nFollowing": `<user following count>`,
+ *    "createdAt": `<user creation datetime>`
+ * }
+ *
+ * Success status code: 200
+ *
+ * DEV NOTES: Select fields in return.
+ */
+const getCurrentUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user.id, {
+    attributes: [
+      "id",
+      "username",
+      "firstName",
+      "lastName",
+      "nArticles",
+      "nComments",
+      "nLikes",
+      "nFollowers",
+      "nFollowing",
+      "createdAt",
+    ],
+  });
+  res.status(StatusCodes.OK).json({ user });
+});
+
 /** GET `<apiRoot>`/users/:username
  *
  * Get a user by username.
@@ -379,6 +418,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
 });
 
 export {
+  getCurrentUserProfile,
   getUserByUsername,
   getUserArticles,
   getUserFollowing,
