@@ -2,6 +2,7 @@ import express from "express";
 
 import { userAuthMiddleware } from "../middleware/auth.js";
 import {
+  getCurrentUserProfile,
   getUserByUsername,
   getUserFollowing,
   getUserFollowers,
@@ -13,6 +14,9 @@ import {
 
 const userRouter = express.Router();
 
+userRouter
+  .route("/current-user/profile")
+  .get(userAuthMiddleware, getCurrentUserProfile);
 userRouter.route("/:username").get(getUserByUsername);
 userRouter.route("/:username/articles").get(getUserArticles);
 userRouter.route("/:userId/following").get(getUserFollowing);
