@@ -12,6 +12,22 @@ const initComment = (sequelize) => {
           len: [1, 5000], // Good limit?
         },
       },
+      nLikes: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+          min: 0,
+        },
+      },
+      nComments: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+          min: 0,
+        },
+      },
     },
     {
       validate: {
