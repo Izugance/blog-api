@@ -1,15 +1,17 @@
 "use strict";
+const bcrypt = require("bcrypt");
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     let users = [];
+    const salt = await bcrypt.genSalt();
     for (let i = 1; i <= 3; i++) {
       users.push({
-        firstName: "Test" + i,
-        lastName: "User" + i,
+        firstName: "Test",
+        lastName: "User",
         email: "test" + i + "@test.com",
         username: "test" + i,
-        password: "test",
+        password: await bcrypt.hash("test", salt),
         createdAt: new Date(),
         updatedAt: new Date(),
       });
