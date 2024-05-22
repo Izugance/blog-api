@@ -18,14 +18,19 @@ const initLike = (sequelize, DataTypes) => {
       },
       indexes: [
         {
-          name: "article_index",
+          name: "likes_article_index",
           using: "HASH",
           fields: ["articleId"],
         },
         {
-          name: "comment_index",
+          name: "likes_comment_index",
           using: "HASH",
           fields: ["commentId"],
+        },
+        {
+          name: "likes_identity_index",
+          unique: true,
+          fields: ["userId", "articleId", "commentId"],
         },
       ],
     }

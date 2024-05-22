@@ -31,17 +31,38 @@ const initComment = (sequelize) => {
     },
     {
       validate: {
-        /** Checks that a Comment is associated with one comment OR one article. */
-        hasOneParentPost() {
-          let bothNull = !this.articleId && !this.parentCommentId;
+        /** Checks that a Comment is associated with one comment OR one article
+         * OR none (in the case of a deleted parent article/comment).
+         */
+        hasAtMostOneParent() {
           let bothNotNull = !!this.articleId && !!this.parentCommentId;
-          if (bothNotNull || bothNull) {
+          if (bothNotNull) {
             throw new Error(
-              "A comment must be associated with a comment or an article, but not both"
+              `A comment must be associated with a comment or an article or none (in
+              the case of a deleted parent article/comment), but not both a comment
+              and an article`
             );
           }
         },
       },
+      // TODO: Index userId, commentId, articleId.
+      indexes: [
+        {
+          name: "comments_author_index",
+          using: "HASH",
+          fields: ["authorId"],
+        },
+        {
+          name: "comments_article_index",
+          using: "HASH",
+          fields: ["articleId"],
+        },
+        {
+          name: "comments_parent_comment_index",
+          using: "HASH",
+          fields: ["parentCommentId"],
+        },
+      ],
     }
   );
 
@@ -53,8 +74,9 @@ const initComment = (sequelize) => {
         name: "parentCommentId",
         allowNull: true,
       },
-      constraints: false, // Resolves circularity.
+      constraints: true, // Resolves circularity.
       // DON'T CASCADE COMMENT DELETES TO COMMENTS?                              -----------
+      onDelete: "SET NULL",
     });
     Comment.hasMany(models.Like, {
       foreignKey: {
@@ -70,6 +92,7 @@ const initComment = (sequelize) => {
         name: "authorId",
         allowNull: false,
       },
+      onDelete: "CASCADE",
     });
     Comment.belongsTo(models.Article, {
       foreignKey: {
@@ -77,6 +100,7 @@ const initComment = (sequelize) => {
         allowNull: true, // Check model-wide validation above.
       },
       // DON'T CASCADE ARTICLE DELETES TO COMMENTS?                              -----------
+      onDelete: "SET NULL",
     });
     return Comment;
   };

@@ -427,14 +427,6 @@ const getArticleComments = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const createArticleComment = asyncHandler(async (req, res) => {
-  const article = await Article.findByPk(req.params.articleId, {
-    attributes: ["id", "nComments"],
-  });
-  if (!article) {
-    throw new ResourceNotFoundError(
-      `Article with id '${req.params.articleId}' does not exist`
-    );
-  }
   // YOUR ERROR HANDLER MIDDLEWARE SHOULD BE ABLE TO HANDLE CREATION ERRORS ----------------------------
   const comment = await sequelize.transaction(async (t) => {
     const comment = await Comment.create({
@@ -442,9 +434,10 @@ const createArticleComment = asyncHandler(async (req, res) => {
       authorId: req.user.id,
       content: req.body.content,
     });
-    await article.increment(
+    await Article.increment(
       "nComments",
       {
+        where: { id: req.params.articleId },
         by: 1,
         returning: false,
       },

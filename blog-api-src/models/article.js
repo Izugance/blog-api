@@ -33,10 +33,15 @@ const initArticle = (sequelize, DataTypes) => {
           min: 0,
         },
       },
-      
     },
     {
-      // Options.
+      indexes: [
+        {
+          name: "articles_author_index",
+          using: "HASH",
+          fields: ["authorId"],
+        },
+      ],
     }
   );
 
@@ -63,6 +68,7 @@ const initArticle = (sequelize, DataTypes) => {
         allowNull: true,
       },
       constraints: false, // Resolves circularity.
+      onDelete: "SET NULL",
     });
     Article.hasMany(models.Like, {
       foreignKey: {
