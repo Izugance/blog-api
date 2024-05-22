@@ -35,8 +35,13 @@ const initArticle = (sequelize, DataTypes) => {
       },
     },
     {
-      // Options.
-      // TODO: Add index on userId col.
+      indexes: [
+        {
+          name: "articles_author_index",
+          using: "HASH",
+          fields: ["authorId"],
+        },
+      ],
     }
   );
 

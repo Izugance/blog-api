@@ -46,6 +46,23 @@ const initComment = (sequelize) => {
         },
       },
       // TODO: Index userId, commentId, articleId.
+      indexes: [
+        {
+          name: "comments_author_index",
+          using: "HASH",
+          fields: ["authorId"],
+        },
+        {
+          name: "comments_article_index",
+          using: "HASH",
+          fields: ["articleId"],
+        },
+        {
+          name: "comments_parent_comment_index",
+          using: "HASH",
+          fields: ["parentCommentId"],
+        },
+      ],
     }
   );
 

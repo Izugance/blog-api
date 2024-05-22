@@ -21,12 +21,12 @@ const initFollow = (sequelize, DataTypes) => {
       // queries on these fields.
       indexes: [
         {
-          name: "following_user_index",
+          name: "follows_following_user_index",
           using: "HASH",
           fields: ["followingUserId"],
         },
         {
-          name: "followed_user_index",
+          name: "follows_followed_user_index",
           using: "HASH",
           fields: ["followedUserId"],
         },
