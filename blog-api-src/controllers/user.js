@@ -87,6 +87,11 @@ const getUserByUsername = asyncHandler(async (req, res) => {
       "createdAt",
     ],
   });
+  if (!user) {
+    throw new ResourceNotFoundError(
+      `User with username '${req.params.username}' does not exist`
+    );
+  }
   res.status(StatusCodes.OK).json({ user });
 });
 
