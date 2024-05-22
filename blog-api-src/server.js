@@ -41,7 +41,7 @@ const server = createServer(app);
 
 const serve = async () => {
   try {
-    await sequelize.sync({ force: true, logging: false });
+    // await sequelize.sync({ force: true, logging: false });
     // await sequelize.sync({ logging: false });
     console.log("Models synchronized");
     await initRoutes();
@@ -50,18 +50,18 @@ const serve = async () => {
       console.log(`Server is listening on port ${port}`);
     });
     // Seed users.
-    let users = [];
-    for (let i = 1; i <= 3; i++) {
-      users.push({
-        id: i,
-        email: "test" + i + "@test.com",
-        username: "test" + i,
-        firstName: "Test",
-        lastName: "User",
-        password: "test",
-      });
-    }
-    await models.User.bulkCreate(users, { individualHooks: true });
+    // let users = [];
+    // for (let i = 1; i <= 3; i++) {
+    //   users.push({
+    //     id: i,
+    //     email: "test" + i + "@test.com",
+    //     username: "test" + i,
+    //     firstName: "Test",
+    //     lastName: "User",
+    //     password: "test",
+    //   });
+    // }
+    // await models.User.bulkCreate(users, { individualHooks: true });
   } catch (err) {
     throw new Error("Could not start-up server\n" + `Reason: ${err.message}`);
   }
