@@ -80,9 +80,17 @@ const getCommentComments = asyncHandler(async (req, res) => {
  *
  * Success status code: 200
  *
- * DEV NOTES: Error if comment doesn't exist?
+ * DEV NOTES: Error if comment exists?
  */
 const createCommentComment = asyncHandler(async (req, res) => {
+  const parentComment = await Comment.findByPk(req.params.articleId, {
+    attributes: ["id", "nComments"],
+  });
+  if (!parentComment) {
+    throw new ResourceNotFoundError(
+      `Comment with id '${req.params.commentId}' does not exist`
+    );
+  }
   const comment = await sequelize.transaction(async (t) => {
     const comment = await Comment.create({
       authorId: req.user.id,
@@ -107,12 +115,17 @@ const createCommentComment = asyncHandler(async (req, res) => {
 /** GET `<apiRoot>`/comments/:commentId
  *
  * Get a single comment. An error is thrown if the comment doesn't
- * exist.
+ * exist. An article attached to a parent post (article or comment)
+ * has the corresponding value (`articleId` or `parentCommentId`)
+ * not null. A comment with a deleted parent post has both `articleId`
+ * and `parentCommentId` being null.
  *
  * URL params: commentId
  *
  * Return: {
  *    "id": `<comment id>`,
+ *    "articleId": `<article id>`,
+ *    "parentCommentId": `<parent comment id>`
  *    "content": `<comment content>`,
  *    "createdAt": `<comment creation datetime>`,
  *    "nComments": `<comment comment count>`,
@@ -127,7 +140,15 @@ const createCommentComment = asyncHandler(async (req, res) => {
  */
 const getComment = asyncHandler(async (req, res) => {
   let comment = await Comment.findByPk(req.params.commentId, {
-    attributes: ["id", "content", "createdAt", "nComments", "nLikes"],
+    attributes: [
+      "id",
+      "articleId",
+      "parentCommentId",
+      "content",
+      "createdAt",
+      "nComments",
+      "nLikes",
+    ],
     include: {
       model: User,
       as: "Author",
@@ -136,8 +157,7 @@ const getComment = asyncHandler(async (req, res) => {
   });
   if (!comment) {
     throw new ResourceNotFoundError(
-      `Comment with id ${req.params.commentId} does not exist
-      }`
+      `Comment with id ${req.params.commentId} does not exist`
     );
   }
   comment = comment.toJSON();
