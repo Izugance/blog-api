@@ -3,12 +3,22 @@ import "dotenv/config";
 import asyncHandler from "express-async-handler";
 import { createServer } from "node:http";
 import { StatusCodes } from "http-status-codes";
+import cors from "cors";
+import helmet from "helmet";
+import xssClean from "xss-clean";
 
-import { sequelize, models } from "./models/index.js";
+// import { sequelize, models } from "./models/index.js";
 import errorHandler from "./middleware/fooErrorHandler.js";
 
 const app = express();
-app.use(express.json());
+
+// Pre-route middleware.
+const initPreRouteMiddleware = () => {
+  app.use(express.json());
+  app.use(cors());
+  app.use(helmet());
+  app.use(xssClean());
+};
 
 // -----Routes-----
 const initRoutes = async () => {
@@ -31,7 +41,7 @@ const initRoutes = async () => {
 };
 
 // -----Middleware-----
-const initMiddleware = () => {
+const initPostRouteMiddleware = () => {
   // app.use(errorHandler);
 };
 
@@ -43,9 +53,10 @@ const serve = async () => {
   try {
     // await sequelize.sync({ force: true, logging: false });
     // await sequelize.sync({ logging: false });
-    console.log("Models synchronized");
+    // console.log("Models synchronized");
+    initPreRouteMiddleware();
     await initRoutes();
-    initMiddleware();
+    initPostRouteMiddleware();
     server.listen(port, () => {
       console.log(`Server is listening on port ${port}`);
     });
