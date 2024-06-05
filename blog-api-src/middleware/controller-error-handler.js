@@ -1,28 +1,28 @@
 import { StatusCodes } from "http-status-codes";
+import { ValidationError } from "sequelize";
+
+import { toTitleCase } from "../utils/toTitleCase.js";
 
 export default (err, req, res, next) => {
   const error = {
     msg:
-      err.msg || "Something went wrong. Please check parameters and try again",
+      err.msg || "Something went wrong. Please check arguments and try again",
     statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
   };
 
-  if (err.name === "ValidationError") {
-    let errorString = Object.values(err.errors)
-      .map((error) => error.message)
-      .join(", ");
-    error.msg = errorString;
+  if (err.name === "SequelizeUniqueConstraintError") {
+    error.msg = `Attempt at creating duplicate ${err.parent.table}`;
     error.statusCode = StatusCodes.BAD_REQUEST;
-  } else if (err.name === "CastError") {
-    error.msg =
-      `Could not find the requested resource with id ${err.value}. ` +
-      "Please verify the id and try again";
+  } else if (err.name === "SequelizeForeignKeyConstraintError") {
+    const fkey = err.parent.constraint.split("_")[1];
+    const model = toTitleCase(fkey.slice(0, -2));
+    error.msg = `${model} with provided id doesn't exist`;
     error.statusCode = StatusCodes.NOT_FOUND;
-  } else if (err.code === 11000) {
-    // Duplicate object creation error.
-    error.msg =
-      `Attempt at creating duplicate objects with unique ` +
-      `field(s) '${Object.keys(err.keyValue)}'`;
+  } else if (err instanceof ValidationError) {
+    const errorFields = err.errors.map((errorItem) => {
+      return errorItem.path;
+    });
+    error.msg = `Invalid arguments. Fields: '${errorFields.join(", ")}'`;
     error.statusCode = StatusCodes.BAD_REQUEST;
   }
 
