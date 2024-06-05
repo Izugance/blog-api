@@ -125,6 +125,7 @@ const getUserArticles = asyncHandler(async (req, res) => {
       `User with username '${req.params.userId}' does not exist`
     );
   }
+
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let articles = await user.getArticles({
@@ -135,6 +136,7 @@ const getUserArticles = asyncHandler(async (req, res) => {
   articles = articles.map((article) => {
     return article.toJSON();
   });
+
   res.status(StatusCodes.OK).json({ articles });
 });
 
@@ -181,6 +183,7 @@ const getUserArticles = asyncHandler(async (req, res) => {
 const getUserLikes = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
+
   let likes = await Like.findAll({
     where: {
       userId: req.user.id,
@@ -210,6 +213,7 @@ const getUserLikes = asyncHandler(async (req, res) => {
       },
     ],
   });
+
   likes = likes.map((like) => {
     if (!like.Comment) {
       return { createdAt: like.createdAt, Article: like.Article };
@@ -251,6 +255,7 @@ const getUserFollowing = asyncHandler(async (req, res) => {
       `User with id '${req.params.userId}' does not exist`
     );
   }
+
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let following = await Follow.findAll({
@@ -265,6 +270,7 @@ const getUserFollowing = asyncHandler(async (req, res) => {
     },
     attributes: ["createdAt"],
   });
+
   following = following.map((userFollows) => {
     return userFollows.toJSON();
   });
@@ -302,6 +308,7 @@ const getUserFollowers = asyncHandler(async (req, res) => {
       `User with id '${req.params.userId}' does not exist`
     );
   }
+
   const page = Number(req.query.page) || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let followers = await Follow.findAll({
@@ -316,6 +323,7 @@ const getUserFollowers = asyncHandler(async (req, res) => {
     },
     attributes: ["createdAt"],
   });
+
   followers = followers.map((follower) => {
     return follower.toJSON();
   });
@@ -344,6 +352,7 @@ const followUser = asyncHandler(async (req, res) => {
       `User with id '${req.params.userId}' does not exist`
     );
   }
+
   await sequelize.transaction(async (t) => {
     await Follow.create({
       followingUserId: req.user.id,
@@ -368,6 +377,7 @@ const followUser = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.CREATED).json(null);
 });
 
@@ -385,21 +395,27 @@ const followUser = asyncHandler(async (req, res) => {
  */
 const unfollowUser = asyncHandler(async (req, res) => {
   const targetUser = await User.findByPk(req.params.userId, {
-    attributes: ["id"],
+    attributes: ["id", "username"],
   });
   if (!targetUser) {
     throw new ResourceNotFoundError(
       `User with id '${req.params.userId}' does not exist`
     );
   }
+
   await sequelize.transaction(async (t) => {
-    // INFER FOLLOWER EXISTENCE? --------------------------------------------------------
-    await Follow.destroy({
+    const nDeletedRows = await Follow.destroy({
       where: {
         followingUserId: req.user.id,
         followedUserId: targetUser.id,
       },
     });
+    if (!nDeletedRows) {
+      throw new ResourceNotFoundError(
+        `User '${req.user.username}' does not follow user '${targetUser.username}'`
+      );
+    }
+
     await User.decrement(
       "nFollowers",
       {
@@ -419,6 +435,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
