@@ -8,11 +8,12 @@ import helmet from "helmet";
 import xssClean from "xss-clean";
 
 // import { sequelize, models } from "./models/index.js";
-import errorHandler from "./middleware/fooErrorHandler.js";
+import controllerErrorHandler from "./middleware/controller-error-handler.js";
+import endpointNotFoundMiddleware from "./middleware/endpoint-not-found.js";
 
 const app = express();
 
-// Pre-route middleware.
+// -----Pre-route middleware-----
 const initPreRouteMiddleware = () => {
   app.use(express.json());
   app.use(cors());
@@ -37,12 +38,12 @@ const initRoutes = async () => {
       res.status(StatusCodes.OK).send("Welcome to the Blog API");
     })
   );
-  app.use(errorHandler);
 };
 
-// -----Middleware-----
+// -----Post-route middleware-----
 const initPostRouteMiddleware = () => {
-  // app.use(errorHandler);
+  app.use(controllerErrorHandler);
+  app.use(endpointNotFoundMiddleware);
 };
 
 // -----Server-setup-----

@@ -51,6 +51,7 @@ const getAllArticles = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   articles = articles.map((article) => {
     return article.toJSON();
   });
@@ -78,6 +79,7 @@ const createArticle = asyncHandler(async (req, res) => {
       },
       { transaction: t }
     );
+
     await User.increment(
       "nArticles",
       {
@@ -89,6 +91,7 @@ const createArticle = asyncHandler(async (req, res) => {
     );
     return article;
   });
+
   res.status(StatusCodes.CREATED).json({ id: article.id });
 });
 
@@ -194,6 +197,7 @@ const deleteArticle = asyncHandler(async (req, res) => {
         }'`
       );
     }
+
     await User.decrement(
       "nArticles",
       {
@@ -204,6 +208,7 @@ const deleteArticle = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -236,6 +241,7 @@ const getArticleLikes = asyncHandler(async (req, res) => {
       `Article with id '${req.params.articleId}' does not exist`
     );
   }
+
   const page = req.query.page || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let likes = await Like.findAll({
@@ -248,6 +254,7 @@ const getArticleLikes = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   likes = likes.map((like) => {
     return like.toJSON();
   });
@@ -275,8 +282,9 @@ const likeArticle = asyncHandler(async (req, res) => {
     attributes: ["id"],
   });
   if (like) {
-    throw new ValidationError("Duplicate like creation attempt");
+    throw new ValidationError("Attempt at creating duplicate Likes");
   }
+
   await sequelize.transaction(async (t) => {
     await Like.create(
       {
@@ -304,6 +312,7 @@ const likeArticle = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.CREATED).json(null);
 });
 
@@ -335,6 +344,7 @@ const unlikeArticle = asyncHandler(async (req, res) => {
         ```
       );
     }
+
     await Article.decrement(
       "nLikes",
       {
@@ -354,6 +364,7 @@ const unlikeArticle = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -384,7 +395,6 @@ const unlikeArticle = asyncHandler(async (req, res) => {
  */
 const getArticleComments = asyncHandler(async (req, res) => {
   // Using lazy loading.
-  const page = req.query.page || 1;
   const article = await Article.findByPk(req.params.articleId, {
     attributes: ["id"],
   });
@@ -393,6 +403,8 @@ const getArticleComments = asyncHandler(async (req, res) => {
       `Article with id '${req.params.articleId}' does not exist`
     );
   }
+
+  const page = req.query.page || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let comments = await article.getComments({
     limit: PAGINATION_LIMIT,
@@ -404,6 +416,7 @@ const getArticleComments = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   comments = comments.map((comment) => {
     return comment.toJSON();
   });
@@ -427,13 +440,13 @@ const getArticleComments = asyncHandler(async (req, res) => {
  * DEV NOTES: Error if article doesn't exist?
  */
 const createArticleComment = asyncHandler(async (req, res) => {
-  // YOUR ERROR HANDLER MIDDLEWARE SHOULD BE ABLE TO HANDLE CREATION ERRORS ----------------------------
   const comment = await sequelize.transaction(async (t) => {
     const comment = await Comment.create({
       articleId: req.params.articleId,
       authorId: req.user.id,
       content: req.body.content,
     });
+
     await Article.increment(
       "nComments",
       {
@@ -454,6 +467,7 @@ const createArticleComment = asyncHandler(async (req, res) => {
     );
     return comment;
   });
+
   res.status(StatusCodes.CREATED).json({ id: comment.id });
 });
 

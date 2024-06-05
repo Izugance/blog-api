@@ -48,6 +48,7 @@ const getCommentComments = asyncHandler(async (req, res) => {
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist`
     );
+
   const page = req.query.page || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let comments = await comment.getComments({
@@ -60,6 +61,7 @@ const getCommentComments = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   comments = comments.map((comment) => {
     return comment.toJSON();
   });
@@ -91,12 +93,14 @@ const createCommentComment = asyncHandler(async (req, res) => {
       `Comment with id '${req.params.commentId}' does not exist`
     );
   }
+
   const comment = await sequelize.transaction(async (t) => {
     const comment = await Comment.create({
       authorId: req.user.id,
       parentCommentId: req.params.commentId,
       content: req.body.content,
     });
+
     await Comment.increment(
       "nComments",
       { where: { id: req.params.commentId }, by: 1, returning: false },
@@ -109,6 +113,7 @@ const createCommentComment = asyncHandler(async (req, res) => {
     );
     return comment;
   });
+
   res.status(StatusCodes.CREATED).json({ id: comment.id });
 });
 
@@ -155,6 +160,7 @@ const getComment = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   if (!comment) {
     throw new ResourceNotFoundError(
       `Comment with id ${req.params.commentId} does not exist`
@@ -186,6 +192,7 @@ const deleteComment = asyncHandler(async (req, res) => {
       }`
     );
   }
+
   await sequelize.transaction(async (t) => {
     await comment.destroy();
     if (comment.articleId) {
@@ -201,12 +208,14 @@ const deleteComment = asyncHandler(async (req, res) => {
         { transaction: t }
       );
     }
+
     await User.decrement(
       "nComments",
       { where: { id: req.user.id }, by: 1, returning: false },
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
@@ -239,6 +248,7 @@ const getCommentLikes = asyncHandler(async (req, res) => {
       `Comment with id '${req.params.commentId}' does not exist`
     );
   }
+
   const page = req.query.page || 1;
   const offset = getOffset(PAGINATION_LIMIT, page);
   let likes = await Like.findAll({
@@ -251,6 +261,7 @@ const getCommentLikes = asyncHandler(async (req, res) => {
       attributes: ["id", "username"],
     },
   });
+
   likes = likes.map((like) => {
     return like.toJSON();
   });
@@ -278,13 +289,15 @@ const likeComment = asyncHandler(async (req, res) => {
     attributes: ["id"],
   });
   if (like) {
-    throw new ValidationError("Duplicate like creation attempt");
+    throw new ValidationError("Attempt at creating duplicate Likes");
   }
+
   await sequelize.transaction(async (t) => {
     await Like.create({
       commentId: req.params.commentId,
       userId: req.user.id,
     });
+
     await Comment.increment(
       "nLikes",
       {
@@ -304,6 +317,7 @@ const likeComment = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.CREATED).json(null);
 });
 
@@ -337,6 +351,7 @@ const unlikeComment = asyncHandler(async (req, res) => {
         `
       );
     }
+
     await Comment.decrement(
       "nLikes",
       {
@@ -356,6 +371,7 @@ const unlikeComment = asyncHandler(async (req, res) => {
       { transaction: t }
     );
   });
+
   res.status(StatusCodes.NO_CONTENT).json(null);
 });
 
