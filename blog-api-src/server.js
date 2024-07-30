@@ -3,6 +3,7 @@ import "dotenv/config";
 import asyncHandler from "express-async-handler";
 import { createServer } from "node:http";
 import { StatusCodes } from "http-status-codes";
+import bodyParser from "body-parser";
 import cors from "cors";
 import helmet from "helmet";
 import xssClean from "xss-clean";
@@ -15,7 +16,7 @@ const app = express();
 
 // -----Pre-route middleware-----
 const initPreRouteMiddleware = () => {
-  app.use(express.json());
+  app.use(bodyParser.urlencoded({ extended: false }));
   app.use(cors());
   app.use(helmet());
   app.use(xssClean());
