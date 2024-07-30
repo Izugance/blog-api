@@ -16,6 +16,7 @@ const app = express();
 
 // -----Pre-route middleware-----
 const initPreRouteMiddleware = () => {
+  app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(cors());
   app.use(helmet());
