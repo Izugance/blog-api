@@ -11,7 +11,7 @@ const connectDB = (options) => {
     }
     return sequelize;
   } catch (err) {
-    throw new Error("Could not connect to the database\n" + err.msg);
+    throw new Error("Could not connect to the database\n" + err.message);
   }
 };
 
