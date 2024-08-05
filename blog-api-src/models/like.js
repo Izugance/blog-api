@@ -43,6 +43,7 @@ const initLike = (sequelize, DataTypes) => {
         allowNull: false,
       },
     });
+
     Like.belongsTo(models.Article, {
       foreignKey: {
         name: "articleId",
@@ -50,12 +51,14 @@ const initLike = (sequelize, DataTypes) => {
       },
       onDelete: "CASCADE",
     });
+
     Like.belongsTo(models.Comment, {
       foreignKey: {
         name: "commentId",
         allowNull: true, // Check model-wide validation above.
       },
     });
+
     return Like;
   };
 

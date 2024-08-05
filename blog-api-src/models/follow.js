@@ -42,6 +42,7 @@ const initFollow = (sequelize, DataTypes) => {
       },
       onDelete: "CASCADE",
     });
+
     Follow.belongsTo(models.User, {
       foreignKey: {
         name: "followedUserId",
@@ -49,6 +50,7 @@ const initFollow = (sequelize, DataTypes) => {
       },
       onDelete: "CASCADE",
     });
+    
     return Follow;
   };
 

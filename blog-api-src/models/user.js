@@ -130,6 +130,7 @@ const initUser = (sequelize, DataTypes) => {
       },
       onDelete: "SET NULL",
     });
+
     User.hasMany(models.Comment, {
       foreignKey: {
         name: "authorId",
@@ -137,6 +138,7 @@ const initUser = (sequelize, DataTypes) => {
       },
       onDelete: "CASCADE",
     });
+
     User.hasMany(models.Like, {
       foreignKey: {
         name: "userId",
@@ -144,6 +146,7 @@ const initUser = (sequelize, DataTypes) => {
       },
       onDelete: "CASCADE",
     });
+
     // The follow relation. Source is taken as the followed user.
     // Target is taken as the following user.
     //
@@ -167,6 +170,7 @@ const initUser = (sequelize, DataTypes) => {
       timestamps: true,
       constraints: false,
     });
+
     return User;
   };
 

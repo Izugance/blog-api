@@ -1,6 +1,7 @@
 // 1:M association with: User, Like.
 // M:1 association with: Comment, Article.
 import { DataTypes } from "sequelize";
+
 const initComment = (sequelize) => {
   const Comment = sequelize.define(
     "Comment",
@@ -78,6 +79,7 @@ const initComment = (sequelize) => {
       // DON'T CASCADE COMMENT DELETES TO COMMENTS?                              -----------
       onDelete: "SET NULL",
     });
+
     Comment.hasMany(models.Like, {
       foreignKey: {
         name: "commentId",
@@ -86,6 +88,7 @@ const initComment = (sequelize) => {
       constraints: false, // Resolves circularity.
       onDelete: "CASCADE",
     });
+
     Comment.belongsTo(models.User, {
       as: "Author",
       foreignKey: {
@@ -94,6 +97,7 @@ const initComment = (sequelize) => {
       },
       onDelete: "CASCADE",
     });
+
     Comment.belongsTo(models.Article, {
       foreignKey: {
         name: "articleId",
@@ -102,6 +106,7 @@ const initComment = (sequelize) => {
       // DON'T CASCADE ARTICLE DELETES TO COMMENTS?                              -----------
       onDelete: "SET NULL",
     });
+
     return Comment;
   };
 
